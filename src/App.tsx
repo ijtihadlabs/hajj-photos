@@ -8,59 +8,96 @@ function readRoute(): Route {
   return raw === "take-photo" ? "take-photo" : "home";
 }
 
-function NavButton({
+function ModuleCard({
+  title,
+  subtitle,
   href,
-  active,
-  children,
+  enabled = true,
 }: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  href?: string;
+  enabled?: boolean;
 }) {
+  const content = (
+    <div
+      style={{
+        padding: 16,
+        borderRadius: 16,
+        border: "1px solid #ddd",
+        background: enabled ? "#fff" : "#f7f7f7",
+        opacity: enabled ? 1 : 0.6,
+        display: "grid",
+        gap: 6,
+        minHeight: 110,
+      }}
+    >
+      <strong style={{ fontSize: 16 }}>{title}</strong>
+      {subtitle && <span style={{ fontSize: 13, opacity: 0.75 }}>{subtitle}</span>}
+      {!enabled && <span style={{ fontSize: 12, opacity: 0.6 }}>Coming soon</span>}
+    </div>
+  );
+
+  if (!enabled || !href) return content;
+
   return (
     <a
       href={href}
       style={{
-        padding: "8px 10px",
-        borderRadius: 10,
         textDecoration: "none",
-        border: "1px solid #ddd",
-        background: active ? "#111" : "#fff",
-        color: active ? "#fff" : "#111",
-        fontSize: 14,
+        color: "inherit",
       }}
-      aria-current={active ? "page" : undefined}
     >
-      {children}
+      {content}
     </a>
   );
 }
 
 function Home() {
   return (
-    <>
-      <h1 style={{ marginBottom: 8 }}>Hajj Assistant</h1>
-      <p style={{ marginTop: 0, opacity: 0.8 }}>
-        A free, local-only app to help Hujjaj make calm, informed decisions
-        before and during Hajj.
-      </p>
+    <div style={{ display: "grid", gap: 24 }}>
+      <div style={{ textAlign: "center", marginTop: 16 }}>
+        <h1 style={{ marginBottom: 8 }}>Hajj Assistant</h1>
+        <p style={{ margin: 0, opacity: 0.8, fontStyle: "italic" }}>
+          A small, free effort to help fellow Hujjaj prepare with clarity and ease,
+          seeking only the pleasure of Allah.
+        </p>
+      </div>
 
       <div
         style={{
-          marginTop: 16,
-          padding: 16,
-          border: "1px solid #ddd",
-          borderRadius: 12,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gap: 16,
+          marginTop: 8,
         }}
       >
-        <h2 style={{ marginTop: 0 }}>How to use</h2>
-        <ol style={{ marginBottom: 0 }}>
-          <li>Open a module from the navigation above.</li>
-          <li>Everything stays on your device (no accounts, no tracking).</li>
-          <li>Install as a PWA for the best offline experience.</li>
-        </ol>
+        <ModuleCard
+          title="Take Hajj Photo"
+          subtitle="Nusuk-ready photo helper"
+          href="/#/take-photo"
+          enabled
+        />
+
+        <ModuleCard
+          title="Hajj Checklist"
+          subtitle="Essentials & preparation"
+          enabled={false}
+        />
+
+        <ModuleCard
+          title="Hajj Timeline"
+          subtitle="Day-by-day guidance"
+          enabled={false}
+        />
+
+        <ModuleCard
+          title="Notes"
+          subtitle="Personal reminders"
+          enabled={false}
+        />
       </div>
-    </>
+    </div>
   );
 }
 
@@ -78,18 +115,5 @@ export default function App() {
     return <Home />;
   }, [route]);
 
-  return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 16 }}>
-      <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-        <NavButton href="/#/home" active={route === "home"}>
-          Home
-        </NavButton>
-        <NavButton href="/#/take-photo" active={route === "take-photo"}>
-          Take Hajj Photo
-        </NavButton>
-      </nav>
-
-      {page}
-    </div>
-  );
+  return <div style={{ maxWidth: 960, margin: "0 auto", padding: 16 }}>{page}</div>;
 }
