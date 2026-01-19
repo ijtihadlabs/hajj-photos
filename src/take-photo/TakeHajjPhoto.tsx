@@ -395,8 +395,7 @@ export default function TakeHajjPhoto() {
   const canCapture = isReady && passManual;
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <a
+    <div style={{ display: "grid", gap: 12 }}><a
         href="/#/home"
         style={{
           textDecoration: "none",

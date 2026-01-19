@@ -1,40 +1,64 @@
 import { useEffect, useMemo, useState } from "react";
 import TakeHajjPhoto from "./take-photo/TakeHajjPhoto";
+import PrepareExistingPhotoForNusuk from "./modules/prepare-existing-photo-for-nusuk";
 
-type Route = "home" | "take-photo";
+type Route = "home" | "take-photo" | "prepare-photo";
 
 function readRoute(): Route {
   const raw = window.location.hash.replace("#/", "").trim();
-  return raw === "take-photo" ? "take-photo" : "home";
+  if (raw === "" || raw === "home") return "home";
+  if (raw === "take-photo") return "take-photo";
+  if (raw === "prepare-photo") return "prepare-photo";
+  return "home";
 }
 
-function ModuleCard({
-  title,
-  subtitle,
+function ModuleTile({
+  ariaLabel,
   href,
   enabled = true,
+  icon,
+  caption,
 }: {
-  title: string;
-  subtitle?: string;
+  ariaLabel: string;
   href?: string;
   enabled?: boolean;
+  icon: string;
+  caption?: string;
 }) {
   const content = (
     <div
+      role="button"
+      aria-label={ariaLabel}
+      title={ariaLabel}
       style={{
-        padding: 16,
+        padding: 14,
         borderRadius: 16,
         border: "1px solid #ddd",
         background: enabled ? "#fff" : "#f7f7f7",
-        opacity: enabled ? 1 : 0.6,
+        opacity: enabled ? 1 : 0.45,
         display: "grid",
+        placeItems: "center",
+        minHeight: 100,
+        userSelect: "none",
         gap: 6,
-        minHeight: 110,
       }}
     >
-      <strong style={{ fontSize: 16 }}>{title}</strong>
-      {subtitle && <span style={{ fontSize: 13, opacity: 0.75 }}>{subtitle}</span>}
-      {!enabled && <span style={{ fontSize: 12, opacity: 0.6 }}>Coming soon</span>}
+      <span style={{ fontSize: 26 }} aria-hidden="true">
+        {icon}
+      </span>
+
+      {caption && (
+        <span
+          style={{
+            fontSize: 11,
+            opacity: 0.7,
+            textAlign: "center",
+            lineHeight: 1.2,
+          }}
+        >
+          {caption}
+        </span>
+      )}
     </div>
   );
 
@@ -67,34 +91,46 @@ function Home() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
           gap: 16,
           marginTop: 8,
         }}
       >
-        <ModuleCard
-          title="Take Hajj Photo"
-          subtitle="Nusuk-ready photo helper"
+        <ModuleTile
+          ariaLabel="Take Hajj Photo"
           href="/#/take-photo"
           enabled
+          icon="📷"
+          caption="Take photo"
         />
 
-        <ModuleCard
-          title="Hajj Checklist"
-          subtitle="Essentials & preparation"
-          enabled={false}
+        <ModuleTile
+          ariaLabel="Prepare Existing Photo for Nusuk"
+          href="/#/prepare-photo"
+          enabled
+          icon="🖼️"
+          caption="Convert photo"
         />
 
-        <ModuleCard
-          title="Hajj Timeline"
-          subtitle="Day-by-day guidance"
+        <ModuleTile
+          ariaLabel="Hajj Checklist"
           enabled={false}
+          icon="✅"
+          caption="Checklist"
         />
 
-        <ModuleCard
-          title="Notes"
-          subtitle="Personal reminders"
+        <ModuleTile
+          ariaLabel="Hajj Timeline"
           enabled={false}
+          icon="🗓️"
+          caption="Timeline"
+        />
+
+        <ModuleTile
+          ariaLabel="Notes"
+          enabled={false}
+          icon="📝"
+          caption="Notes"
         />
       </div>
     </div>
@@ -112,6 +148,7 @@ export default function App() {
 
   const page = useMemo(() => {
     if (route === "take-photo") return <TakeHajjPhoto />;
+    if (route === "prepare-photo") return <PrepareExistingPhotoForNusuk />;
     return <Home />;
   }, [route]);
 
