@@ -9,7 +9,7 @@ type CaptureState =
 
 type LiveChecks = {
   faceDetected: boolean;
-  guidance: string; // short instruction
+  guidance: string;
   centeredOk: boolean;
   sizeOk: boolean;
   bgBrightOk: boolean;
@@ -44,6 +44,10 @@ export default function TakeHajjPhoto() {
     bgBrightOk: false,
     bgPlainOk: false,
   });
+
+  // Manual confirmations (definitive)
+  const [confirmNoGlasses, setConfirmNoGlasses] = useState(false);
+  const [confirmNoHat, setConfirmNoHat] = useState(false);
 
   async function stopStream() {
     if (streamRef.current) {
@@ -217,13 +221,14 @@ export default function TakeHajjPhoto() {
     }
   }
 
-  // Live checks: face + centering/size + background brightness/plainness (best effort)
+  // Live checks (best-effort): face + size/center + background brightness/plainness
   useEffect(() => {
     let cancelled = false;
     let rafId = 0;
 
     const run = async () => {
       if (cancelled) return;
+
       const video = videoRef.current;
       if (!video || status !== "ready") {
         rafId = requestAnimationFrame(run);
@@ -256,7 +261,6 @@ export default function TakeHajjPhoto() {
           return;
         }
 
-        // Normalize face box
         const fx = (bb.x as number) / vw;
         const fy = (bb.y as number) / vh;
         const fw = (bb.w as number) / vw;
@@ -265,24 +269,17 @@ export default function TakeHajjPhoto() {
         const faceCx = fx + fw / 2;
         const faceCy = fy + fh / 2;
 
-        // Center tolerance
-        const centeredOk = Math.abs(faceCx - 0.5) <= 0.10 && Math.abs(faceCy - 0.45) <= 0.15;
+        const centeredOk =
+          Math.abs(faceCx - 0.5) <= 0.1 && Math.abs(faceCy - 0.45) <= 0.15;
 
-        // Size heuristic:
-        // We want face + shoulders to fill ~70% of the final photo, not just the face.
-        // So we target a face box height roughly between 35% and 55% of the frame.
+        // target face box height ~ 35%..55% of frame
         const sizeOk = fh >= 0.35 && fh <= 0.55;
 
         let guidance = "Looks good. Hold still.";
-        if (!sizeOk) {
-          guidance = fh < 0.35 ? "Move closer." : "Move a bit farther back.";
-        } else if (!centeredOk) {
-          guidance = "Center your face in the square.";
-        }
+        if (!sizeOk) guidance = fh < 0.35 ? "Move closer." : "Move a bit farther back.";
+        else if (!centeredOk) guidance = "Center your face in the square.";
 
-        // Background checks (best effort):
-        // Downscale current frame, sample pixels OUTSIDE the face box,
-        // measure brightness mean + variance.
+        // Background checks via downsample
         const sampleW = 64;
         const sampleH = 64;
         const c = document.createElement("canvas");
@@ -303,14 +300,12 @@ export default function TakeHajjPhoto() {
         }
 
         ctx.drawImage(video, 0, 0, sampleW, sampleH);
-
         const img = ctx.getImageData(0, 0, sampleW, sampleH).data;
 
-        // face region in sample coords (inflate a bit)
         const rx0 = clamp(Math.floor((fx - 0.05) * sampleW), 0, sampleW - 1);
         const ry0 = clamp(Math.floor((fy - 0.05) * sampleH), 0, sampleH - 1);
         const rx1 = clamp(Math.floor((fx + fw + 0.05) * sampleW), 0, sampleW - 1);
-        const ry1 = clamp(Math.floor((fy + fh + 0.10) * sampleH), 0, sampleH - 1);
+        const ry1 = clamp(Math.floor((fy + fh + 0.1) * sampleH), 0, sampleH - 1);
 
         let sum = 0;
         let sumSq = 0;
@@ -326,9 +321,7 @@ export default function TakeHajjPhoto() {
             const g = img[i + 1];
             const b = img[i + 2];
 
-            // luminance approx
             const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-
             sum += lum;
             sumSq += lum * lum;
             count++;
@@ -339,42 +332,34 @@ export default function TakeHajjPhoto() {
         const variance = count ? sumSq / count - mean * mean : 0;
         const std = Math.sqrt(Math.max(0, variance));
 
-        // Heuristics:
-        const bgBrightOk = mean >= 190;     // fairly bright
-        const bgPlainOk = std <= 35;        // low variation -> plain-ish
+        const bgBrightOk = mean >= 190;
+        const bgPlainOk = std <= 35;
 
-        // If background checks fail, override guidance only if face is otherwise ok
         let finalGuidance = guidance;
         if (sizeOk && centeredOk) {
           if (!bgBrightOk) finalGuidance = "Background looks dark. Move to brighter light / white wall.";
           else if (!bgPlainOk) finalGuidance = "Background looks busy. Try a plain white wall.";
         }
 
-        if (!cancelled) {
-          setChecks({
-            faceDetected: true,
-            guidance: finalGuidance,
-            centeredOk,
-            sizeOk,
-            bgBrightOk,
-            bgPlainOk,
-          });
-        }
+        setChecks({
+          faceDetected: true,
+          guidance: finalGuidance,
+          centeredOk,
+          sizeOk,
+          bgBrightOk,
+          bgPlainOk,
+        });
       } catch {
-        // If ML fails (offline first load, etc.), don’t break camera — just show neutral guidance.
-        if (!cancelled) {
-          setChecks((c) => ({
-            ...c,
-            guidance: "Tip: Use a bright, plain white background and center your face.",
-          }));
-        }
+        setChecks((c) => ({
+          ...c,
+          guidance: "Tip: Use a bright, plain white background and center your face.",
+        }));
       }
 
       rafId = requestAnimationFrame(run);
     };
 
     rafId = requestAnimationFrame(run);
-
     return () => {
       cancelled = true;
       if (rafId) cancelAnimationFrame(rafId);
@@ -382,25 +367,24 @@ export default function TakeHajjPhoto() {
   }, [status]);
 
   const passCore =
-    checks.faceDetected && checks.centeredOk && checks.sizeOk && checks.bgBrightOk && checks.bgPlainOk;
+    checks.faceDetected &&
+    checks.centeredOk &&
+    checks.sizeOk &&
+    checks.bgBrightOk &&
+    checks.bgPlainOk;
+
+  const passManual = confirmNoGlasses && confirmNoHat;
+  const canCapture = isReady && passManual;
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <h1 style={{ margin: 0 }}>Take Hajj Photo</h1>
 
       <p style={{ margin: 0, opacity: 0.85 }}>
-        Local-only camera tool to help you take a Nusuk-ready photo. Nothing is uploaded anywhere.
+        Local-only camera tool. Nothing is uploaded anywhere.
       </p>
 
-      <div
-        style={{
-          padding: 12,
-          border: "1px solid #ddd",
-          borderRadius: 12,
-          display: "grid",
-          gap: 8,
-        }}
-      >
+      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 12, display: "grid", gap: 8 }}>
         <strong>Live guidance</strong>
         <div style={{ fontSize: 14 }}>
           <span style={{ fontWeight: 600 }}>{checks.guidance}</span>
@@ -413,7 +397,33 @@ export default function TakeHajjPhoto() {
           <li>{checks.bgPlainOk ? "✅" : "⬜"} Background plain enough</li>
         </ul>
         <div style={{ fontSize: 12, opacity: 0.75 }}>
-          These checks are best-effort guidance. Final acceptance depends on Nusuk’s validation.
+          Best-effort guidance. Final acceptance depends on Nusuk’s validation.
+        </div>
+      </div>
+
+      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 12, display: "grid", gap: 8 }}>
+        <strong>Confirm before capture</strong>
+
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={confirmNoGlasses}
+            onChange={(e) => setConfirmNoGlasses(e.target.checked)}
+          />
+          <span>No glasses / sunglasses</span>
+        </label>
+
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={confirmNoHat}
+            onChange={(e) => setConfirmNoHat(e.target.checked)}
+          />
+          <span>No hat / cap / head accessory (headscarf is allowed)</span>
+        </label>
+
+        <div style={{ fontSize: 12, opacity: 0.8 }}>
+          Capture will be enabled once both are confirmed.
         </div>
       </div>
 
@@ -430,14 +440,9 @@ export default function TakeHajjPhoto() {
           ref={videoRef}
           playsInline
           muted
-          style={{
-            width: "100%",
-            height: "auto",
-            display: "block",
-          }}
+          style={{ width: "100%", height: "auto", display: "block" }}
         />
 
-        {/* Square guide overlay (no shadow) */}
         <div
           style={{
             position: "absolute",
@@ -494,9 +499,7 @@ export default function TakeHajjPhoto() {
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button
-          onClick={() =>
-            setFacingMode((m) => (m === "user" ? "environment" : "user"))
-          }
+          onClick={() => setFacingMode((m) => (m === "user" ? "environment" : "user"))}
           style={{
             padding: "10px 12px",
             borderRadius: 12,
@@ -509,16 +512,17 @@ export default function TakeHajjPhoto() {
         </button>
 
         <button
-          disabled={!isReady}
+          disabled={!canCapture}
           onClick={capture200x200Jpg}
           style={{
             padding: "10px 12px",
             borderRadius: 12,
             border: "1px solid #ddd",
-            background: isReady ? "#111" : "#eee",
-            color: isReady ? "#fff" : "#666",
-            cursor: isReady ? "pointer" : "not-allowed",
+            background: canCapture ? "#111" : "#eee",
+            color: canCapture ? "#fff" : "#666",
+            cursor: canCapture ? "pointer" : "not-allowed",
           }}
+          title={!passManual ? "Please confirm: no glasses and no hat." : undefined}
         >
           Capture 200×200
         </button>
@@ -540,27 +544,10 @@ export default function TakeHajjPhoto() {
       </div>
 
       {capture.kind === "captured" && (
-        <div
-          style={{
-            padding: 12,
-            border: "1px solid #ddd",
-            borderRadius: 12,
-            display: "grid",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
-          >
+        <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 12, display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <strong>Captured (200×200 JPG)</strong>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>
-              Size: {bytesToKB(capture.bytes)} KB
-            </span>
+            <span style={{ fontSize: 12, opacity: 0.8 }}>Size: {bytesToKB(capture.bytes)} KB</span>
           </div>
 
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -605,7 +592,7 @@ export default function TakeHajjPhoto() {
               </div>
 
               <div style={{ fontSize: 12, opacity: 0.85 }}>
-                Overall: {passCore ? "✅ Looks compliant (best effort)" : "⬜ Not yet"}
+                Overall (best effort): {passCore ? "✅ Looks compliant" : "⬜ Not yet"}
               </div>
             </div>
           </div>
@@ -613,7 +600,7 @@ export default function TakeHajjPhoto() {
       )}
 
       <div style={{ fontSize: 12, opacity: 0.8 }}>
-        Next: optional “shadow” heuristic + optional “glasses/hat” confirmation checklist.
+        Next: add a shadow heuristic warning (best effort).
       </div>
     </div>
   );
