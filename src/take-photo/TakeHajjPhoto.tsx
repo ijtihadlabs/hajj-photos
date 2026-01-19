@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { getFaceDetector, getLargestFaceBox } from "./vision";
 
 type FacingMode = "user" | "environment";
 
@@ -6,8 +7,21 @@ type CaptureState =
   | { kind: "none" }
   | { kind: "captured"; blob: Blob; objectUrl: string; bytes: number };
 
+type LiveChecks = {
+  faceDetected: boolean;
+  guidance: string; // short instruction
+  centeredOk: boolean;
+  sizeOk: boolean;
+  bgBrightOk: boolean;
+  bgPlainOk: boolean;
+};
+
 function bytesToKB(bytes: number) {
   return Math.round((bytes / 1024) * 10) / 10;
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
 }
 
 export default function TakeHajjPhoto() {
@@ -21,6 +35,15 @@ export default function TakeHajjPhoto() {
   const [errorMsg, setErrorMsg] = useState<string>("");
 
   const [capture, setCapture] = useState<CaptureState>({ kind: "none" });
+
+  const [checks, setChecks] = useState<LiveChecks>({
+    faceDetected: false,
+    guidance: "Position your face inside the square.",
+    centeredOk: false,
+    sizeOk: false,
+    bgBrightOk: false,
+    bgPlainOk: false,
+  });
 
   async function stopStream() {
     if (streamRef.current) {
@@ -82,19 +105,17 @@ export default function TakeHajjPhoto() {
     }
   }
 
-  // Clean up captured object URLs
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (capture.kind === "captured") URL.revokeObjectURL(capture.objectUrl);
+      stopStream();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     startCamera(facingMode);
-    return () => {
-      stopStream();
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [facingMode]);
 
@@ -111,7 +132,6 @@ export default function TakeHajjPhoto() {
     if (!videoRef.current) return;
 
     const video = videoRef.current;
-
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
@@ -120,8 +140,6 @@ export default function TakeHajjPhoto() {
       return;
     }
 
-    // We crop a centered square from the camera frame, then resize to 200x200.
-    // This matches the overlay (simple + reliable). Later we’ll guide framing via face detection.
     const side = Math.min(vw, vh);
     const sx = Math.floor((vw - side) / 2);
     const sy = Math.floor((vh - side) / 2);
@@ -138,11 +156,8 @@ export default function TakeHajjPhoto() {
 
     ctx.drawImage(video, sx, sy, side, side, 0, 0, 200, 200);
 
-    // 200x200 will almost always be well under 1MB, but we still enforce it.
-    const quality = 0.92;
-
     const blob: Blob | null = await new Promise((resolve) => {
-      canvas.toBlob((b) => resolve(b), "image/jpeg", quality);
+      canvas.toBlob((b) => resolve(b), "image/jpeg", 0.92);
     });
 
     if (!blob) {
@@ -177,7 +192,6 @@ export default function TakeHajjPhoto() {
   async function shareCapture() {
     if (capture.kind !== "captured") return;
 
-    // iOS Safari supports navigator.share for files on many versions, but not all.
     const file = new File([capture.blob], "hajj-photo-200x200.jpg", {
       type: "image/jpeg",
     });
@@ -199,17 +213,183 @@ export default function TakeHajjPhoto() {
         files: [file],
       });
     } catch {
-      // User cancelled share — ignore
+      // user cancelled
     }
   }
+
+  // Live checks: face + centering/size + background brightness/plainness (best effort)
+  useEffect(() => {
+    let cancelled = false;
+    let rafId = 0;
+
+    const run = async () => {
+      if (cancelled) return;
+      const video = videoRef.current;
+      if (!video || status !== "ready") {
+        rafId = requestAnimationFrame(run);
+        return;
+      }
+
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) {
+        rafId = requestAnimationFrame(run);
+        return;
+      }
+
+      try {
+        const detector = await getFaceDetector();
+        const now = performance.now();
+        const result = detector.detectForVideo(video, now);
+
+        const bb = getLargestFaceBox(result);
+        if (!bb) {
+          setChecks({
+            faceDetected: false,
+            guidance: "No face detected. Ensure your face is visible and well-lit.",
+            centeredOk: false,
+            sizeOk: false,
+            bgBrightOk: false,
+            bgPlainOk: false,
+          });
+          rafId = requestAnimationFrame(run);
+          return;
+        }
+
+        // Normalize face box
+        const fx = (bb.x as number) / vw;
+        const fy = (bb.y as number) / vh;
+        const fw = (bb.w as number) / vw;
+        const fh = (bb.h as number) / vh;
+
+        const faceCx = fx + fw / 2;
+        const faceCy = fy + fh / 2;
+
+        // Center tolerance
+        const centeredOk = Math.abs(faceCx - 0.5) <= 0.10 && Math.abs(faceCy - 0.45) <= 0.15;
+
+        // Size heuristic:
+        // We want face + shoulders to fill ~70% of the final photo, not just the face.
+        // So we target a face box height roughly between 35% and 55% of the frame.
+        const sizeOk = fh >= 0.35 && fh <= 0.55;
+
+        let guidance = "Looks good. Hold still.";
+        if (!sizeOk) {
+          guidance = fh < 0.35 ? "Move closer." : "Move a bit farther back.";
+        } else if (!centeredOk) {
+          guidance = "Center your face in the square.";
+        }
+
+        // Background checks (best effort):
+        // Downscale current frame, sample pixels OUTSIDE the face box,
+        // measure brightness mean + variance.
+        const sampleW = 64;
+        const sampleH = 64;
+        const c = document.createElement("canvas");
+        c.width = sampleW;
+        c.height = sampleH;
+        const ctx = c.getContext("2d", { willReadFrequently: true });
+        if (!ctx) {
+          setChecks({
+            faceDetected: true,
+            guidance,
+            centeredOk,
+            sizeOk,
+            bgBrightOk: false,
+            bgPlainOk: false,
+          });
+          rafId = requestAnimationFrame(run);
+          return;
+        }
+
+        ctx.drawImage(video, 0, 0, sampleW, sampleH);
+
+        const img = ctx.getImageData(0, 0, sampleW, sampleH).data;
+
+        // face region in sample coords (inflate a bit)
+        const rx0 = clamp(Math.floor((fx - 0.05) * sampleW), 0, sampleW - 1);
+        const ry0 = clamp(Math.floor((fy - 0.05) * sampleH), 0, sampleH - 1);
+        const rx1 = clamp(Math.floor((fx + fw + 0.05) * sampleW), 0, sampleW - 1);
+        const ry1 = clamp(Math.floor((fy + fh + 0.10) * sampleH), 0, sampleH - 1);
+
+        let sum = 0;
+        let sumSq = 0;
+        let count = 0;
+
+        for (let y = 0; y < sampleH; y++) {
+          for (let x = 0; x < sampleW; x++) {
+            const inFace = x >= rx0 && x <= rx1 && y >= ry0 && y <= ry1;
+            if (inFace) continue;
+
+            const i = (y * sampleW + x) * 4;
+            const r = img[i];
+            const g = img[i + 1];
+            const b = img[i + 2];
+
+            // luminance approx
+            const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+            sum += lum;
+            sumSq += lum * lum;
+            count++;
+          }
+        }
+
+        const mean = count ? sum / count : 0;
+        const variance = count ? sumSq / count - mean * mean : 0;
+        const std = Math.sqrt(Math.max(0, variance));
+
+        // Heuristics:
+        const bgBrightOk = mean >= 190;     // fairly bright
+        const bgPlainOk = std <= 35;        // low variation -> plain-ish
+
+        // If background checks fail, override guidance only if face is otherwise ok
+        let finalGuidance = guidance;
+        if (sizeOk && centeredOk) {
+          if (!bgBrightOk) finalGuidance = "Background looks dark. Move to brighter light / white wall.";
+          else if (!bgPlainOk) finalGuidance = "Background looks busy. Try a plain white wall.";
+        }
+
+        if (!cancelled) {
+          setChecks({
+            faceDetected: true,
+            guidance: finalGuidance,
+            centeredOk,
+            sizeOk,
+            bgBrightOk,
+            bgPlainOk,
+          });
+        }
+      } catch {
+        // If ML fails (offline first load, etc.), don’t break camera — just show neutral guidance.
+        if (!cancelled) {
+          setChecks((c) => ({
+            ...c,
+            guidance: "Tip: Use a bright, plain white background and center your face.",
+          }));
+        }
+      }
+
+      rafId = requestAnimationFrame(run);
+    };
+
+    rafId = requestAnimationFrame(run);
+
+    return () => {
+      cancelled = true;
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [status]);
+
+  const passCore =
+    checks.faceDetected && checks.centeredOk && checks.sizeOk && checks.bgBrightOk && checks.bgPlainOk;
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <h1 style={{ margin: 0 }}>Take Hajj Photo</h1>
 
       <p style={{ margin: 0, opacity: 0.85 }}>
-        Local-only camera tool to help you take a Nusuk-ready photo. Nothing is
-        uploaded anywhere.
+        Local-only camera tool to help you take a Nusuk-ready photo. Nothing is uploaded anywhere.
       </p>
 
       <div
@@ -221,15 +401,20 @@ export default function TakeHajjPhoto() {
           gap: 8,
         }}
       >
-        <strong>Requirements</strong>
-        <ul style={{ margin: 0, paddingLeft: 18 }}>
-          <li>200 × 200 pixels, JPG, under 1MB</li>
-          <li>Natural white background, no shadow</li>
-          <li>No glasses / hat / accessories</li>
-          <li>Face + part of shoulders (~70% of frame)</li>
-          <li>Neutral expression (not smiling)</li>
-          <li>Modest clothing (headscarf allowed)</li>
+        <strong>Live guidance</strong>
+        <div style={{ fontSize: 14 }}>
+          <span style={{ fontWeight: 600 }}>{checks.guidance}</span>
+        </div>
+        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, opacity: 0.9 }}>
+          <li>{checks.faceDetected ? "✅" : "⬜"} Face detected</li>
+          <li>{checks.centeredOk ? "✅" : "⬜"} Face centered</li>
+          <li>{checks.sizeOk ? "✅" : "⬜"} Face distance looks right</li>
+          <li>{checks.bgBrightOk ? "✅" : "⬜"} Background bright enough</li>
+          <li>{checks.bgPlainOk ? "✅" : "⬜"} Background plain enough</li>
         </ul>
+        <div style={{ fontSize: 12, opacity: 0.75 }}>
+          These checks are best-effort guidance. Final acceptance depends on Nusuk’s validation.
+        </div>
       </div>
 
       <div
@@ -252,7 +437,7 @@ export default function TakeHajjPhoto() {
           }}
         />
 
-        {/* Square guide overlay (no shadow per requirement) */}
+        {/* Square guide overlay (no shadow) */}
         <div
           style={{
             position: "absolute",
@@ -364,7 +549,14 @@ export default function TakeHajjPhoto() {
             gap: 10,
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
             <strong>Captured (200×200 JPG)</strong>
             <span style={{ fontSize: 12, opacity: 0.8 }}>
               Size: {bytesToKB(capture.bytes)} KB
@@ -411,13 +603,17 @@ export default function TakeHajjPhoto() {
               <div style={{ fontSize: 12, opacity: 0.8, maxWidth: 320 }}>
                 If “Share” is unavailable, use “Download JPG”, then save it to Photos from Files.
               </div>
+
+              <div style={{ fontSize: 12, opacity: 0.85 }}>
+                Overall: {passCore ? "✅ Looks compliant (best effort)" : "⬜ Not yet"}
+              </div>
             </div>
           </div>
         </div>
       )}
 
       <div style={{ fontSize: 12, opacity: 0.8 }}>
-        Next: live guidance (face framing + background brightness + shadow heuristic), then a final post-capture re-check.
+        Next: optional “shadow” heuristic + optional “glasses/hat” confirmation checklist.
       </div>
     </div>
   );
