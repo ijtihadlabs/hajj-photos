@@ -56,14 +56,13 @@ export default function TakeHajjPhoto() {
 
   const [checks, setChecks] = useState<LiveChecks>({
     faceDetected: false,
-    guidance: "Position your face inside the square.",
+    guidance: "Position your face inside the oval (within the square).",
     centeredOk: false,
     sizeOk: false,
     bgBrightOk: false,
     bgPlainOk: false,
   });
 
-  // Manual confirmations (definitive)
   const [confirmNoGlasses, setConfirmNoGlasses] = useState(false);
   const [confirmNoHat, setConfirmNoHat] = useState(false);
 
@@ -127,7 +126,6 @@ export default function TakeHajjPhoto() {
     }
   }
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (capture.kind === "captured") URL.revokeObjectURL(capture.objectUrl);
@@ -202,7 +200,6 @@ export default function TakeHajjPhoto() {
 
   function downloadCapture() {
     if (capture.kind !== "captured") return;
-
     const a = document.createElement("a");
     a.href = capture.objectUrl;
     a.download = "hajj-photo-200x200.jpg";
@@ -239,7 +236,6 @@ export default function TakeHajjPhoto() {
     }
   }
 
-  // Live checks (best-effort): face + size/center + background brightness/plainness
   useEffect(() => {
     let cancelled = false;
     let rafId = 0;
@@ -290,14 +286,12 @@ export default function TakeHajjPhoto() {
         const centeredOk =
           Math.abs(faceCx - 0.5) <= 0.1 && Math.abs(faceCy - 0.45) <= 0.15;
 
-        // target face box height ~ 35%..55% of frame
         const sizeOk = fh >= 0.35 && fh <= 0.55;
 
         let guidance = "Looks good. Hold still.";
         if (!sizeOk) guidance = fh < 0.35 ? "Move closer." : "Move a bit farther back.";
-        else if (!centeredOk) guidance = "Center your face in the square.";
+        else if (!centeredOk) guidance = "Center your face in the oval.";
 
-        // Background checks via downsample
         const sampleW = 64;
         const sampleH = 64;
         const c = document.createElement("canvas");
@@ -395,7 +389,8 @@ export default function TakeHajjPhoto() {
   const canCapture = isReady && passManual;
 
   return (
-    <div style={{ display: "grid", gap: 12 }}><a
+    <div style={{ display: "grid", gap: 12 }}>
+      <a
         href="/#/home"
         style={{
           textDecoration: "none",
@@ -416,12 +411,12 @@ export default function TakeHajjPhoto() {
 
       <h1 style={{ margin: 0 }}>Take Hajj Photo</h1>
 
-      <p style={{ margin: 0, opacity: 0.85 }}>
-        Local-only camera tool. Nothing is uploaded anywhere.
-      </p>
-
       <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 12, display: "grid", gap: 8 }}>
         <strong>Live guidance</strong>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>
+          Look straight at the camera with both eyes open.
+        </div>
+
         <div style={{ fontSize: 14 }}>
           <span style={{ fontWeight: 600 }}>{checks.guidance}</span>
         </div>
@@ -481,7 +476,7 @@ export default function TakeHajjPhoto() {
           style={{ width: "100%", height: "auto", display: "block" }}
         />
 
-        {/* Square guide overlay (no shadow) */}
+        {/* Overlay: square crop frame + spec oval */}
         <div
           style={{
             position: "absolute",
@@ -495,11 +490,28 @@ export default function TakeHajjPhoto() {
             style={{
               width: "70%",
               aspectRatio: "1 / 1",
+              position: "relative",
               border: "3px solid rgba(255,255,255,0.85)",
-              borderRadius: 12,
-              boxShadow: "none",
+              borderRadius: 14,
+              overflow: "hidden",
             }}
-          />
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                width: "65%",
+                height: "80%",
+                transform: "translate(-50%,-50%)",
+                borderRadius: "50%",
+                border: "2px solid white",
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.25)",
+                pointerEvents: "none",
+              }}
+            />
+          </div>
         </div>
 
         <div
@@ -641,7 +653,7 @@ export default function TakeHajjPhoto() {
       )}
 
       <div style={{ fontSize: 12, opacity: 0.8 }}>
-        Next: add a shadow heuristic warning (best effort).
+        Note: The oval guide helps encourage a forward-facing photo (eyes open, looking ahead). Final validation depends on Nusuk.
       </div>
     </div>
   );
