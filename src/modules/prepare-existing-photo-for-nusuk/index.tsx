@@ -1,4 +1,3 @@
-import React from "react";
 import PhotoConverter from "./PhotoConverter";
 
 export default function PrepareExistingPhotoForNusuk() {
