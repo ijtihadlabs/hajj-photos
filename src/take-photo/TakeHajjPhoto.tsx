@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from "react";
 
 type FacingMode = "user" | "environment";
 
+type CaptureState =
+  | { kind: "none" }
+  | { kind: "captured"; blob: Blob; objectUrl: string; bytes: number };
+
+function bytesToKB(bytes: number) {
+  return Math.round((bytes / 1024) * 10) / 10;
+}
+
 export default function TakeHajjPhoto() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -11,6 +19,8 @@ export default function TakeHajjPhoto() {
     "idle" | "starting" | "ready" | "denied" | "error"
   >("idle");
   const [errorMsg, setErrorMsg] = useState<string>("");
+
+  const [capture, setCapture] = useState<CaptureState>({ kind: "none" });
 
   async function stopStream() {
     if (streamRef.current) {
@@ -26,7 +36,6 @@ export default function TakeHajjPhoto() {
     setStatus("starting");
     setErrorMsg("");
 
-    // Always stop old stream before starting a new one
     await stopStream();
 
     try {
@@ -37,9 +46,7 @@ export default function TakeHajjPhoto() {
       }
 
       const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: mode, // best-effort; iOS Safari supports this
-        },
+        video: { facingMode: mode },
         audio: false,
       };
 
@@ -53,8 +60,6 @@ export default function TakeHajjPhoto() {
       }
 
       videoRef.current.srcObject = stream;
-
-      // iOS Safari sometimes needs an explicit play()
       await videoRef.current.play();
 
       setStatus("ready");
@@ -77,11 +82,16 @@ export default function TakeHajjPhoto() {
     }
   }
 
+  // Clean up captured object URLs
   useEffect(() => {
-    // Start on mount
-    startCamera(facingMode);
+    return () => {
+      if (capture.kind === "captured") URL.revokeObjectURL(capture.objectUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // Cleanup on unmount
+  useEffect(() => {
+    startCamera(facingMode);
     return () => {
       stopStream();
     };
@@ -89,6 +99,109 @@ export default function TakeHajjPhoto() {
   }, [facingMode]);
 
   const isReady = status === "ready";
+
+  function clearCapture() {
+    setCapture((c) => {
+      if (c.kind === "captured") URL.revokeObjectURL(c.objectUrl);
+      return { kind: "none" };
+    });
+  }
+
+  async function capture200x200Jpg() {
+    if (!videoRef.current) return;
+
+    const video = videoRef.current;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+
+    if (!vw || !vh) {
+      alert("Camera not ready yet — try again in a moment.");
+      return;
+    }
+
+    // We crop a centered square from the camera frame, then resize to 200x200.
+    // This matches the overlay (simple + reliable). Later we’ll guide framing via face detection.
+    const side = Math.min(vw, vh);
+    const sx = Math.floor((vw - side) / 2);
+    const sy = Math.floor((vh - side) / 2);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 200;
+    canvas.height = 200;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      alert("Canvas not supported in this browser.");
+      return;
+    }
+
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, 200, 200);
+
+    // 200x200 will almost always be well under 1MB, but we still enforce it.
+    const quality = 0.92;
+
+    const blob: Blob | null = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/jpeg", quality);
+    });
+
+    if (!blob) {
+      alert("Failed to create JPG.");
+      return;
+    }
+
+    if (blob.size > 1024 * 1024) {
+      alert("Photo is over 1MB (unexpected). Try again.");
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+
+    setCapture((c) => {
+      if (c.kind === "captured") URL.revokeObjectURL(c.objectUrl);
+      return { kind: "captured", blob, objectUrl, bytes: blob.size };
+    });
+  }
+
+  function downloadCapture() {
+    if (capture.kind !== "captured") return;
+
+    const a = document.createElement("a");
+    a.href = capture.objectUrl;
+    a.download = "hajj-photo-200x200.jpg";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  async function shareCapture() {
+    if (capture.kind !== "captured") return;
+
+    // iOS Safari supports navigator.share for files on many versions, but not all.
+    const file = new File([capture.blob], "hajj-photo-200x200.jpg", {
+      type: "image/jpeg",
+    });
+
+    const canShare =
+      (navigator as any).canShare && (navigator as any).canShare({ files: [file] });
+
+    if (!navigator.share || !canShare) {
+      alert(
+        "Share is not available on this device/browser. Use Download instead, then save to Photos."
+      );
+      return;
+    }
+
+    try {
+      await navigator.share({
+        title: "Hajj Photo",
+        text: "200×200 JPG (local-only)",
+        files: [file],
+      });
+    } catch {
+      // User cancelled share — ignore
+    }
+  }
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -128,7 +241,6 @@ export default function TakeHajjPhoto() {
           position: "relative",
         }}
       >
-        {/* Video */}
         <video
           ref={videoRef}
           playsInline
@@ -140,7 +252,7 @@ export default function TakeHajjPhoto() {
           }}
         />
 
-        {/* Square guide overlay */}
+        {/* Square guide overlay (no shadow per requirement) */}
         <div
           style={{
             position: "absolute",
@@ -161,7 +273,6 @@ export default function TakeHajjPhoto() {
           />
         </div>
 
-        {/* Status chip */}
         <div
           style={{
             position: "absolute",
@@ -214,11 +325,7 @@ export default function TakeHajjPhoto() {
 
         <button
           disabled={!isReady}
-          onClick={() =>
-            alert(
-              "Next step: Capture + crop + resize to 200×200 JPG (we’ll add this after preview is stable)."
-            )
-          }
+          onClick={capture200x200Jpg}
           style={{
             padding: "10px 12px",
             borderRadius: 12,
@@ -228,13 +335,89 @@ export default function TakeHajjPhoto() {
             cursor: isReady ? "pointer" : "not-allowed",
           }}
         >
-          Capture (next)
+          Capture 200×200
+        </button>
+
+        <button
+          disabled={capture.kind !== "captured"}
+          onClick={clearCapture}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 12,
+            border: "1px solid #ddd",
+            background: "#fff",
+            cursor: capture.kind === "captured" ? "pointer" : "not-allowed",
+            opacity: capture.kind === "captured" ? 1 : 0.5,
+          }}
+        >
+          Retake
         </button>
       </div>
 
+      {capture.kind === "captured" && (
+        <div
+          style={{
+            padding: 12,
+            border: "1px solid #ddd",
+            borderRadius: 12,
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <strong>Captured (200×200 JPG)</strong>
+            <span style={{ fontSize: 12, opacity: 0.8 }}>
+              Size: {bytesToKB(capture.bytes)} KB
+            </span>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <img
+              src={capture.objectUrl}
+              alt="Captured 200x200"
+              width={200}
+              height={200}
+              style={{ borderRadius: 12, border: "1px solid #eee" }}
+            />
+
+            <div style={{ display: "grid", gap: 8 }}>
+              <button
+                onClick={downloadCapture}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid #ddd",
+                  background: "#111",
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Download JPG
+              </button>
+
+              <button
+                onClick={shareCapture}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Share / Save to Photos
+              </button>
+
+              <div style={{ fontSize: 12, opacity: 0.8, maxWidth: 320 }}>
+                If “Share” is unavailable, use “Download JPG”, then save it to Photos from Files.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ fontSize: 12, opacity: 0.8 }}>
-        Note: Camera access requires HTTPS in production. Netlify provides HTTPS
-        automatically.
+        Next: live guidance (face framing + background brightness + shadow heuristic), then a final post-capture re-check.
       </div>
     </div>
   );
