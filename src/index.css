@@ -66,3 +66,156 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* ===== Ijtihad Labs: Theme tokens (light/dark) ===== */
+:root {
+  --bg: #ffffff;
+  --text: #0f172a;
+  --muted: rgba(15, 23, 42, 0.70);
+  --border: rgba(15, 23, 42, 0.12);
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-bg-solid: #ffffff;
+  --card-hover: rgba(15, 23, 42, 0.04);
+  --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220;
+    --text: #e5e7eb;
+    --muted: rgba(229, 231, 235, 0.72);
+    --border: rgba(229, 231, 235, 0.14);
+    --card-bg: rgba(17, 24, 39, 0.75);
+    --card-bg-solid: #111827;
+    --card-hover: rgba(255, 255, 255, 0.06);
+    --shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  }
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+a { color: inherit; }
+
+/* Home layout helpers */
+.app-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.app-hero {
+  text-align: center;
+  margin-top: 14px;
+}
+
+.app-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+}
+
+.module-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+  text-decoration: none;
+  transform: translateZ(0);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.module-card:hover {
+  background: var(--card-bg-solid);
+  transform: translateY(-1px);
+}
+
+.module-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.module-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.module-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card-hover);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+
+/* ===== Shared button styles (used across modules) ===== */
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.btn {
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-weight: 700;
+  background: var(--card-bg-solid);
+  color: var(--text);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+}
+
+.btn-primary {
+  background: #1b7f3a;
+  color: #fff;
+  border-color: #1b7f3a;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+}
+
+.btn-danger {
+  background: transparent;
+  color: #d14343;
+  border-color: rgba(209, 67, 67, 0.45);
+}
+
+/* Small pill link (like Back to Home) */
+.pill-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  background: var(--card-bg);
+}

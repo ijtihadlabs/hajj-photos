@@ -1,26 +1,35 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       devOptions: { enabled: true },
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.svg", "icons/apple-touch-icon.png"],
       manifest: {
-        name: 'Hajj Package Ranker',
-        short_name: 'Hajj Ranker',
-        description: 'Compare and rank Hajj packages based on your priorities',
-        theme_color: '#0f766e',
-        background_color: '#ffffff',
-        display: 'standalone',
+        name: "Hajj Photos",
+        short_name: "Hajj Photos",
+        description:
+          "A simple, free tool to help Hujjaj prepare compliant photos with ease.",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#0b1220",
+        theme_color: "#0b1220",
         icons: [
-          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png' }
-        ]
-      }
-    })
-  ]
-})
+          { src: "/icons/icon-72.png", sizes: "72x72", type: "image/png" },
+          { src: "/icons/icon-96.png", sizes: "96x96", type: "image/png" },
+          { src: "/icons/icon-128.png", sizes: "128x128", type: "image/png" },
+          { src: "/icons/icon-144.png", sizes: "144x144", type: "image/png" },
+          { src: "/icons/icon-152.png", sizes: "152x152", type: "image/png" },
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "/icons/icon-256.png", sizes: "256x256", type: "image/png" },
+          { src: "/icons/icon-384.png", sizes: "384x384", type: "image/png" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+        ],
+      },
+    }),
+  ],
+});

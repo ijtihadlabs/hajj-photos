@@ -258,24 +258,49 @@ export default function PhotoConverter() {
     <section className="pc-root">
       <style>{`
         .pc-root { display: grid; gap: 16px; }
-        .pc-help { font-size: 12px; opacity: 0.75; max-width: 760px; }
-        .pc-card { padding: 12px; border: 1px solid #ddd; border-radius: 12px; background: #fff; }
+        .pc-help { font-size: 12px; color: var(--muted); max-width: 760px; line-height: 1.45; }
+
+        .pc-card { padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
         .pc-title { font-weight: 700; margin-bottom: 8px; }
-        .pc-cropBox { width: 100%; max-width: 320px; aspect-ratio: 1 / 1; position: relative; border: 1px solid #ddd; border-radius: 16px; overflow: hidden; background: #fafafa; touch-action: none; }
-        .pc-previewBox { width: 100%; max-width: 320px; aspect-ratio: 1 / 1; border: 1px solid #ddd; border-radius: 16px; background: #fafafa; display: grid; place-items: center; overflow: hidden; }
+
+        .pc-cropBox {
+          width: 100%;
+          max-width: 320px;
+          aspect-ratio: 1 / 1;
+          position: relative;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          overflow: hidden;
+          background: var(--card-bg-solid);
+          touch-action: none;
+        }
+
+        .pc-previewBox {
+          width: 100%;
+          max-width: 320px;
+          aspect-ratio: 1 / 1;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          background: var(--card-bg-solid);
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+        }
+
         .pc-actions { display: grid; gap: 8px; width: 100%; max-width: 320px; }
 
         .pc-btnRow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .pc-btn { padding: 12px 12px; border-radius: 12px; border: 1px solid #ddd; font-weight: 700; }
+        .pc-btn { padding: 12px 12px; border-radius: 12px; border: 1px solid var(--border); font-weight: 700; color: var(--text); background: var(--card-bg-solid); }
         .pc-btn:disabled { opacity: 0.55; }
-        /* Primary (Convert): filled + green tint, but also distinct shape/weight */
+
         .pc-btnPrimary { background: #1b7f3a; color: #fff; border-color: #1b7f3a; }
-        /* Secondary (Reset): outline + red tint, but still readable without colour */
-        .pc-btnDanger { background: #fff; color: #7a1a1a; border-color: #c9a3a3; }
+        .pc-btnDanger { background: transparent; color: #d14343; border-color: rgba(209,67,67,0.45); }
 
         .pc-confirm { display: grid; gap: 8px; }
-        .pc-confirm label { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; font-size: 13px; }
-        .pc-note { font-size: 12px; opacity: 0.75; }
+        .pc-confirm label { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; font-size: 13px; color: var(--text); }
+        .pc-note { font-size: 12px; color: var(--muted); }
+
+        .pc-link { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 
         @media (min-width: 860px) {
           .pc-mainGrid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start; }
@@ -324,7 +349,7 @@ export default function PhotoConverter() {
                   }}
                 />
               ) : (
-                <div style={{ height: "100%", display: "grid", placeItems: "center", opacity: 0.7 }}>
+                <div style={{ height: "100%", display: "grid", placeItems: "center", color: "var(--muted)" }}>
                   No photo selected
                 </div>
               )}
@@ -360,7 +385,6 @@ export default function PhotoConverter() {
                 />
               </label>
 
-              {/* Confirmations placed right above the buttons (mobile-friendly) */}
               <div className="pc-confirm">
                 <div style={{ fontWeight: 700 }}>Confirm before convert</div>
 
@@ -437,12 +461,12 @@ export default function PhotoConverter() {
                   onClick={convert}
                   disabled={!canConvert}
                 >
-                  ✅ Convert
+                  Convert
                 </button>
               </div>
             </div>
 
-            {error && <div style={{ color: "crimson", marginTop: 10 }}>{error}</div>}
+            {error && <div style={{ color: "#ef4444", marginTop: 10 }}>{error}</div>}
           </div>
 
           <div className="pc-card">
@@ -452,24 +476,24 @@ export default function PhotoConverter() {
               {loaded && livePreviewDataUrl ? (
                 <img src={livePreviewDataUrl} alt="Live cropped preview" width={OUT} height={OUT} />
               ) : (
-                <div style={{ opacity: 0.7 }}>No preview</div>
+                <div style={{ color: "var(--muted)" }}>No preview</div>
               )}
             </div>
 
             {outputUrl ? (
               <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
-                <a href={outputUrl} download="nusuk-photo-200x200.jpg">
+                <a className="pc-link" href={outputUrl} download="nusuk-photo-200x200.jpg">
                   Download JPG
                 </a>
 
                 {sizeText && lastQuality != null && (
-                  <div style={{ fontSize: 12, opacity: 0.75 }}>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>
                     Output: {sizeText} (quality {lastQuality.toFixed(2)})
                   </div>
                 )}
               </div>
             ) : (
-              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+              <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
                 Convert to enable download.
               </div>
             )}
@@ -492,7 +516,7 @@ export default function PhotoConverter() {
             <li>Modest clothing (does not need to be formal)</li>
           </ol>
 
-          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+          <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
             Note: This tool provides best-effort help only. Final acceptance depends on Nusuk’s validation.
           </div>
         </aside>

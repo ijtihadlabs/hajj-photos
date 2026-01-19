@@ -389,31 +389,25 @@ export default function TakeHajjPhoto() {
   const canCapture = isReady && passManual;
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <a
-        href="/#/home"
-        style={{
-          textDecoration: "none",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          width: "fit-content",
-          padding: "6px 10px",
-          border: "1px solid #ddd",
-          borderRadius: 999,
-          color: "#111",
-          background: "#fff",
-        }}
-        aria-label="Back to Home"
-      >
+    <div className="app-shell" style={{ display: "grid", gap: 12 }}>
+      <a className="pill-link" href="/#/home" aria-label="Back to Home">
         ← Home
       </a>
 
       <h1 style={{ margin: 0 }}>Take Hajj Photo</h1>
 
-      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 12, display: "grid", gap: 8 }}>
+      <div
+        style={{
+          padding: 12,
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          background: "var(--card-bg)",
+          display: "grid",
+          gap: 8,
+        }}
+      >
         <strong>Live guidance</strong>
-        <div style={{ fontSize: 13, opacity: 0.85 }}>
+        <div style={{ fontSize: 13, color: "var(--muted)" }}>
           Look straight at the camera with both eyes open.
         </div>
 
@@ -429,12 +423,21 @@ export default function TakeHajjPhoto() {
           <li><Check ok={checks.bgPlainOk} />Background plain enough</li>
         </ul>
 
-        <div style={{ fontSize: 12, opacity: 0.75 }}>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>
           Best-effort guidance. Final acceptance depends on Nusuk’s validation.
         </div>
       </div>
 
-      <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 12, display: "grid", gap: 8 }}>
+      <div
+        style={{
+          padding: 12,
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          background: "var(--card-bg)",
+          display: "grid",
+          gap: 8,
+        }}
+      >
         <strong>Confirm before capture</strong>
 
         <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -455,14 +458,14 @@ export default function TakeHajjPhoto() {
           <span>No hat / cap / head accessory (headscarf is allowed)</span>
         </label>
 
-        <div style={{ fontSize: 12, opacity: 0.8 }}>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>
           Capture will be enabled once both are confirmed.
         </div>
       </div>
 
       <div
         style={{
-          border: "1px solid #ddd",
+          border: "1px solid var(--border)",
           borderRadius: 12,
           overflow: "hidden",
           background: "#000",
@@ -476,7 +479,6 @@ export default function TakeHajjPhoto() {
           style={{ width: "100%", height: "auto", display: "block" }}
         />
 
-        {/* Overlay: square crop frame + spec oval */}
         <div
           style={{
             position: "absolute",
@@ -538,69 +540,61 @@ export default function TakeHajjPhoto() {
         <div
           style={{
             padding: 12,
-            border: "1px solid #f2c2c2",
-            background: "#fff5f5",
+            border: "1px solid rgba(239,68,68,0.35)",
+            background: "rgba(239,68,68,0.08)",
             borderRadius: 12,
-            color: "#8a1f1f",
+            color: "#ef4444",
           }}
         >
           {errorMsg}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div className="btn-row">
         <button
+          className="btn btn-secondary"
           onClick={() =>
             setFacingMode((m) => (m === "user" ? "environment" : "user"))
           }
-          style={{
-            padding: "10px 12px",
-            borderRadius: 12,
-            border: "1px solid #ddd",
-            background: "#fff",
-            cursor: "pointer",
-          }}
         >
           Switch camera
         </button>
 
         <button
+          className="btn btn-primary"
           disabled={!canCapture}
           onClick={capture200x200Jpg}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 12,
-            border: "1px solid #ddd",
-            background: canCapture ? "#111" : "#eee",
-            color: canCapture ? "#fff" : "#666",
-            cursor: canCapture ? "pointer" : "not-allowed",
-          }}
           title={!passManual ? "Please confirm: no glasses and no hat." : undefined}
         >
           Capture 200×200
         </button>
 
         <button
+          className="btn btn-danger"
           disabled={capture.kind !== "captured"}
           onClick={clearCapture}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 12,
-            border: "1px solid #ddd",
-            background: "#fff",
-            cursor: capture.kind === "captured" ? "pointer" : "not-allowed",
-            opacity: capture.kind === "captured" ? 1 : 0.5,
-          }}
+          style={{ gridColumn: "1 / -1" }}
         >
           Retake
         </button>
       </div>
 
       {capture.kind === "captured" && (
-        <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 12, display: "grid", gap: 10 }}>
+        <div
+          style={{
+            padding: 12,
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            background: "var(--card-bg)",
+            display: "grid",
+            gap: 10,
+          }}
+        >
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <strong>Captured (200×200 JPG)</strong>
-            <span style={{ fontSize: 12, opacity: 0.8 }}>Size: {bytesToKB(capture.bytes)} KB</span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              Size: {bytesToKB(capture.bytes)} KB
+            </span>
           </div>
 
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -609,52 +603,29 @@ export default function TakeHajjPhoto() {
               alt="Captured 200x200"
               width={200}
               height={200}
-              style={{ borderRadius: 12, border: "1px solid #eee" }}
+              style={{ borderRadius: 12, border: "1px solid var(--border)" }}
             />
 
             <div style={{ display: "grid", gap: 8 }}>
-              <button
-                onClick={downloadCapture}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
-                  background: "#111",
-                  color: "#fff",
-                  cursor: "pointer",
-                }}
-              >
+              <button className="btn btn-primary" onClick={downloadCapture}>
                 Download JPG
               </button>
 
-              <button
-                onClick={shareCapture}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  cursor: "pointer",
-                }}
-              >
+              <button className="btn btn-secondary" onClick={shareCapture}>
                 Share / Save to Photos
               </button>
 
-              <div style={{ fontSize: 12, opacity: 0.8, maxWidth: 320 }}>
+              <div style={{ fontSize: 12, color: "var(--muted)", maxWidth: 320 }}>
                 If “Share” is unavailable, use “Download JPG”, then save it to Photos from Files.
               </div>
 
-              <div style={{ fontSize: 12, opacity: 0.85 }}>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>
                 Overall (best effort): {passCore ? "✓ Looks compliant" : "○ Not yet"}
               </div>
             </div>
           </div>
         </div>
       )}
-
-      <div style={{ fontSize: 12, opacity: 0.8 }}>
-        Note: The oval guide helps encourage a forward-facing photo (eyes open, looking ahead). Final validation depends on Nusuk.
-      </div>
     </div>
   );
 }

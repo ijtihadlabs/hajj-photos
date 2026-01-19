@@ -1,138 +1,107 @@
 import { useEffect, useMemo, useState } from "react";
 import TakeHajjPhoto from "./take-photo/TakeHajjPhoto";
-import PrepareExistingPhotoForNusuk from "./modules/prepare-existing-photo-for-nusuk";
+import PhotoConverter from "./modules/prepare-existing-photo-for-nusuk/PhotoConverter";
 
-type Route = "home" | "take-photo" | "prepare-photo";
+type Route = "home" | "take-photo" | "photo-conversion";
 
 function readRoute(): Route {
   const raw = window.location.hash.replace("#/", "").trim();
-  if (raw === "" || raw === "home") return "home";
   if (raw === "take-photo") return "take-photo";
-  if (raw === "prepare-photo") return "prepare-photo";
+  if (raw === "photo-conversion") return "photo-conversion";
   return "home";
 }
 
-function ModuleTile({
-  ariaLabel,
+function ModuleCard({
+  title,
+  subtitle,
   href,
-  enabled = true,
   icon,
-  caption,
 }: {
-  ariaLabel: string;
-  href?: string;
-  enabled?: boolean;
+  title: string;
+  subtitle: string;
+  href: string;
   icon: string;
-  caption?: string;
 }) {
-  const content = (
-    <div
-      role="button"
-      aria-label={ariaLabel}
-      title={ariaLabel}
-      style={{
-        padding: 14,
-        borderRadius: 16,
-        border: "1px solid #ddd",
-        background: enabled ? "#fff" : "#f7f7f7",
-        opacity: enabled ? 1 : 0.45,
-        display: "grid",
-        placeItems: "center",
-        minHeight: 100,
-        userSelect: "none",
-        gap: 6,
-      }}
-    >
-      <span style={{ fontSize: 26 }} aria-hidden="true">
-        {icon}
-      </span>
-
-      {caption && (
-        <span
-          style={{
-            fontSize: 11,
-            opacity: 0.7,
-            textAlign: "center",
-            lineHeight: 1.2,
-          }}
-        >
-          {caption}
-        </span>
-      )}
-    </div>
-  );
-
-  if (!enabled || !href) return content;
-
   return (
-    <a
-      href={href}
-      style={{
-        textDecoration: "none",
-        color: "inherit",
-      }}
-    >
-      {content}
+    <a className="module-card" href={href} aria-label={title}>
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div className="module-icon" aria-hidden="true">
+          {icon}
+        </div>
+        <div style={{ display: "grid", gap: 2 }}>
+          <div className="module-title">{title}</div>
+          <div className="module-subtitle">{subtitle}</div>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+function BackHome() {
+  return (
+    <a className="pill-link" href="/#/home" aria-label="Back to Home">
+      ← Home
     </a>
   );
 }
 
 function Home() {
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <div style={{ textAlign: "center", marginTop: 16 }}>
-        <h1 style={{ marginBottom: 8 }}>Hajj Assistant</h1>
-        <p style={{ margin: 0, opacity: 0.8, fontStyle: "italic" }}>
-          A small, free effort to help fellow Hujjaj prepare with clarity and ease,
+    <div className="app-shell" style={{ display: "grid", gap: 18 }}>
+      {/* Left-aligned header for mobile readability */}
+      <header style={{ display: "grid", gap: 8, marginTop: 10 }}>
+        <h1 style={{ margin: 0, lineHeight: 1.15 }}>Hajj Photos</h1>
+        <p className="app-subtitle" style={{ margin: 0 }}>
+          A small, free effort to help fellow Hujjaj prepare calmly for photo requirements,
           seeking only the pleasure of Allah.
         </p>
-      </div>
+      </header>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
-          gap: 16,
-          marginTop: 8,
-        }}
-      >
-        <ModuleTile
-          ariaLabel="Take Hajj Photo"
+      {/* Two-module layout: stacked (best for phone + clarity) */}
+      <div className="module-grid">
+        <ModuleCard
+          title="Take Hajj Photo"
+          subtitle="Live helper + 200×200 JPG export"
           href="/#/take-photo"
-          enabled
           icon="📷"
-          caption="Take photo"
         />
 
-        <ModuleTile
-          ariaLabel="Prepare Existing Photo for Nusuk"
-          href="/#/prepare-photo"
-          enabled
-          icon="🖼️"
-          caption="Convert photo"
-        />
-
-        <ModuleTile
-          ariaLabel="Hajj Checklist"
-          enabled={false}
-          icon="✅"
-          caption="Checklist"
-        />
-
-        <ModuleTile
-          ariaLabel="Hajj Timeline"
-          enabled={false}
-          icon="🗓️"
-          caption="Timeline"
-        />
-
-        <ModuleTile
-          ariaLabel="Notes"
-          enabled={false}
-          icon="📝"
-          caption="Notes"
+        <ModuleCard
+          title="Photo Conversion"
+          subtitle="Convert existing photo to Nusuk format"
+          href="/#/photo-conversion"
+          icon="🔄"
         />
       </div>
+
+      <div style={{
+        padding: 12,
+        border: "1px solid var(--border)",
+        borderRadius: 12,
+        background: "var(--card-bg)",
+        fontSize: 12,
+        color: "var(--muted)",
+        lineHeight: 1.45,
+      }}>
+        Tip: Install to Home Screen for the best experience (works offline).
+      </div>
+    </div>
+  );
+}
+
+function PhotoConversion() {
+  return (
+    <div className="app-shell" style={{ display: "grid", gap: 12 }}>
+      <BackHome />
+      <PhotoConverter />
+    </div>
+  );
+}
+
+function TakePhoto() {
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      <TakeHajjPhoto />
     </div>
   );
 }
@@ -147,10 +116,10 @@ export default function App() {
   }, []);
 
   const page = useMemo(() => {
-    if (route === "take-photo") return <TakeHajjPhoto />;
-    if (route === "prepare-photo") return <PrepareExistingPhotoForNusuk />;
+    if (route === "take-photo") return <TakePhoto />;
+    if (route === "photo-conversion") return <PhotoConversion />;
     return <Home />;
   }, [route]);
 
-  return <div style={{ maxWidth: 960, margin: "0 auto", padding: 16 }}>{page}</div>;
+  return page;
 }
