@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 src/App.tsx.bak
 src/take-photo/TakeHajjPhoto.tsx.bak
+dev-dist/
