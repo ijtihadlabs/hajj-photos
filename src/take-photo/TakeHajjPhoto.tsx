@@ -19,10 +19,6 @@ function bytesToKB(bytes: number) {
   return Math.round((bytes / 1024) * 10) / 10;
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
-
 function Check({ ok }: { ok: boolean }) {
   return (
     <span
