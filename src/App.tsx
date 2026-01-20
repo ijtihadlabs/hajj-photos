@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import TakeHajjPhoto from "./take-photo/TakeHajjPhoto";
 import PhotoConverter from "./modules/prepare-existing-photo-for-nusuk/PhotoConverter";
 
-type Route = "home" | "take-photo" | "photo-conversion";
+type Route = "home" | "take-photo" | "photo-conversion" | "install";
 
 function readRoute(): Route {
   const raw = window.location.hash.replace("#/", "").trim();
   if (raw === "take-photo") return "take-photo";
   if (raw === "photo-conversion") return "photo-conversion";
+  if (raw === "install") return "install";
   return "home";
 }
 
@@ -48,7 +49,6 @@ function BackHome() {
 function Home() {
   return (
     <div className="app-shell" style={{ display: "grid", gap: 18 }}>
-      {/* Left-aligned header for mobile readability */}
       <header style={{ display: "grid", gap: 8, marginTop: 10 }}>
         <h1 style={{ margin: 0, lineHeight: 1.15 }}>Hajj Photos</h1>
         <p className="app-subtitle" style={{ margin: 0 }}>
@@ -57,7 +57,6 @@ function Home() {
         </p>
       </header>
 
-      {/* Two-module layout: stacked (best for phone + clarity) */}
       <div className="module-grid">
         <ModuleCard
           title="Take Hajj Photo"
@@ -74,16 +73,28 @@ function Home() {
         />
       </div>
 
-      <div style={{
-        padding: 12,
-        border: "1px solid var(--border)",
-        borderRadius: 12,
-        background: "var(--card-bg)",
-        fontSize: 12,
-        color: "var(--muted)",
-        lineHeight: 1.45,
-      }}>
-        Tip: Install to Home Screen for the best experience (works offline).
+      <div
+        style={{
+          padding: 12,
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          background: "var(--card-bg)",
+          fontSize: 12,
+          color: "var(--muted)",
+          lineHeight: 1.45,
+        }}
+      >
+        Tip: Install to Home Screen for the best experience (works offline).{" "}
+        <a
+          href="/#/install"
+          style={{
+            color: "var(--text)",
+            textDecoration: "underline",
+            textUnderlineOffset: 3,
+          }}
+        >
+          How to install
+        </a>
       </div>
     </div>
   );
@@ -98,10 +109,52 @@ function PhotoConversion() {
   );
 }
 
-function TakePhoto() {
+function InstallHelp() {
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <TakeHajjPhoto />
+    <div className="app-shell" style={{ display: "grid", gap: 12 }}>
+      <BackHome />
+      <h1 style={{ margin: 0 }}>How to install</h1>
+
+      <div
+        style={{
+          padding: 12,
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          background: "var(--card-bg)",
+          display: "grid",
+          gap: 10,
+        }}
+      >
+        <strong>iPhone (Safari)</strong>
+        <ol style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5, color: "var(--text)" }}>
+          <li>Open this site in Safari.</li>
+          <li>Tap the Share button (square with an arrow).</li>
+          <li>Tap “Add to Home Screen”.</li>
+          <li>Tap “Add”.</li>
+        </ol>
+      </div>
+
+      <div
+        style={{
+          padding: 12,
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          background: "var(--card-bg)",
+          display: "grid",
+          gap: 10,
+        }}
+      >
+        <strong>Android (Chrome)</strong>
+        <ol style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5, color: "var(--text)" }}>
+          <li>Open this site in Chrome.</li>
+          <li>Tap the menu (⋮).</li>
+          <li>Tap “Install app” or “Add to Home screen”.</li>
+        </ol>
+      </div>
+
+      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+        Tip: After installing, the app opens faster and can work offline.
+      </div>
     </div>
   );
 }
@@ -116,8 +169,9 @@ export default function App() {
   }, []);
 
   const page = useMemo(() => {
-    if (route === "take-photo") return <TakePhoto />;
+    if (route === "take-photo") return <TakeHajjPhoto />;
     if (route === "photo-conversion") return <PhotoConversion />;
+    if (route === "install") return <InstallHelp />;
     return <Home />;
   }, [route]);
 
