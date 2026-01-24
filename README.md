@@ -31,6 +31,10 @@ A small, free effort to help fellow Hujjaj prepare calmly for photo requirements
 
 > Note: This app provides best-effort help only. Final acceptance depends on Nusuk validation.
 
+## Footer credit
+
+The app includes a small, muted footer line: “Built with love by Ijtihad Labs” (links to https://ijtihadlabs.org).
+
 ## Privacy
 
 - No personal data collected
