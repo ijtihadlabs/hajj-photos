@@ -575,6 +575,11 @@ export default function TakeHajjPhoto() {
           </div>
         </div>
       )}
+
+      <div className="app-footer">
+        Built with love by {" "}
+        <a href="https://ijtihadlabs.org">Ijtihad Labs</a>
+      </div>
     </div>
   );
 }

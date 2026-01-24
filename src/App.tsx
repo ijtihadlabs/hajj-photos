@@ -46,6 +46,15 @@ function BackHome() {
   );
 }
 
+function AppFooter() {
+  return (
+    <div className="app-footer">
+      Built with love by {" "}
+      <a href="https://ijtihadlabs.org">Ijtihad Labs</a>
+    </div>
+  );
+}
+
 function Home() {
   return (
     <div className="app-shell" style={{ display: "grid", gap: 18 }}>
@@ -96,6 +105,7 @@ function Home() {
           How to install
         </a>
       </div>
+      <AppFooter />
     </div>
   );
 }
@@ -105,6 +115,7 @@ function PhotoConversion() {
     <div className="app-shell" style={{ display: "grid", gap: 12 }}>
       <BackHome />
       <PhotoConverter />
+      <AppFooter />
     </div>
   );
 }
@@ -155,6 +166,7 @@ function InstallHelp() {
       <div style={{ fontSize: 12, color: "var(--muted)" }}>
         Tip: After installing, the app opens faster and can work offline.
       </div>
+      <AppFooter />
     </div>
   );
 }
